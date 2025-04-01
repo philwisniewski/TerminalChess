@@ -33,6 +33,9 @@ void initialize_board() {
 }
 
 void promote_pawn(int row, int col) {
+  if (tolower(board[row][col]) != 'p') {
+    return;
+  }
   if (row == 0 || row == BOARD_SIZE - 1) {
     board[row][col] = (board[row][col] == 'p' ? 'q' : 'Q'); // Promote to queen
   }
@@ -261,6 +264,22 @@ int is_legal_castle(char from[2], char to[2], char player) {
   return 0;
 }
 
+int king_gone() {
+  int white_king_found = 1;
+  int black_king_found = 1;
+  for (int i = 0; i < BOARD_SIZE; i++) {
+    for (int j = 0; j < BOARD_SIZE; j++) {
+      if (board[i][j] == 'k') {
+        white_king_found = 0;
+      }
+      else if (board[i][j] == 'K') {
+        black_king_found = 0;
+      }
+    }
+  }
+  return white_king_found | black_king_found;
+}
+
 int move_piece(char from[2], char to[2], char player) {
   int from_row = from[1] - '1';
   int from_col = from[0] - 'a';
@@ -318,6 +337,11 @@ int move_piece(char from[2], char to[2], char player) {
       } else if (from_col == 7) {
         right_rook_moved[player == 'w' ? 0 : 1] = 1;  // Right rook has moved
       }
+    }
+
+    if (king_gone()) {
+      printf("king taken\n");
+      return 2; // end of game
     }
 
     return 1;  // Successful move

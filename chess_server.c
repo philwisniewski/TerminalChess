@@ -56,7 +56,8 @@ void *handle_game(void *arg) {
     char to[2] = { buffer[2], buffer[3] };
     char current_color = turn == 0 ? 'w' : 'b';
     char opponent_color = turn == 0 ? 'b' : 'w';
-    if (move_piece(from, to, current_color)) {
+    int move_result = move_piece(from, to, current_color);
+    if (move_result) {
       send(opponent, "Opponent's move: ", 17, 0);
       send(opponent, buffer, 4, 0);
       send(opponent, "\n", 1, 0);
@@ -64,7 +65,15 @@ void *handle_game(void *arg) {
       print_board(current, current_color);
       print_board(opponent, opponent_color);
 
-      turn = 1 - turn; 
+      turn = 1 - turn;
+
+      if (move_result == 2) {
+        send(opponent, "You lost!\n", 10, 0);
+        send(current, "You won!\n", 9, 0);
+
+        // kill thread
+        break;
+      }
     }
     else {
       send(current, "Invalid move. Try again.\n", 24, 0);
@@ -74,6 +83,7 @@ void *handle_game(void *arg) {
   close(p1);
   close(p2);
   free(players);
+  return NULL;;
 }
 
 void *lobby_manager(void * arg) {
@@ -103,8 +113,24 @@ void *lobby_manager(void * arg) {
       lobby_count -= 2;
       memmove(lobby, lobby + 2, lobby_count * sizeof(Player));
 
+      pid_t pid = fork();
+      if (pid == 0) {
+        close(server_fd);
+        handle_game((void *) players);
+        exit(0);
+      }
+      else if (pid > 0) {
+        close(players[0].socket);
+        close(players[1].socket);
+      }
+      else {
+        perror("Fork failed");
+        exit(1);
+      }
+/*
       pthread_t game_thread;
       pthread_create(&game_thread, NULL, handle_game, (void *) players);
+*/
     }
     pthread_mutex_unlock(&lock);
   }
