@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include <sys/socket.h>
 #include <sys/un.h>
+#include <sys/stat.h>
 #include <pthread.h>
 #include "chess_logic.h"
 
@@ -127,6 +128,8 @@ int main() {
     perror("Bind failed");
     exit(1);
   }
+
+  chmod(SOCKET_PATH, 0666);
 
   listen(server_fd, MAX_PLAYERS);
 
