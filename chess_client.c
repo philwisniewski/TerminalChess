@@ -27,6 +27,8 @@ int main() {
 
   printf("Connected! Waiting for an opponent...\n");
 
+  printf("Once game starts, wait until you receive \"Your move:\"\nTo make a move, enter the positions of where you are moving a piece from and where to.\nExample: d2d4\n");
+
   while (1) {
     memset(buffer, 0, sizeof(buffer));
     ssize_t bytes_read = read(sock, buffer, sizeof(buffer) - 1);
@@ -36,7 +38,7 @@ int main() {
     }
     buffer[bytes_read] = '\0';
 
-    printf("Buff: %s", buffer);
+    printf("%s", buffer);
 
   //#  printf("Read %ld but buffer is len %ld\n", bytes_read, strlen(buffer));
 
@@ -48,7 +50,6 @@ int main() {
         break;
       }
       move[strcspn(move, "\n")] = 0;
-      printf("made move = %s\n", move);
 
       send(sock, move, strlen(move), 0);
     }

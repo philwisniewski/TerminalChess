@@ -28,7 +28,9 @@ void *handle_game(void *arg) {
   printf("Starting game\n");
 
   send(p1, "Game start! You are playing as White.\n", 38, 0);
+  print_board(p1, 'w');
   send(p2, "Game start! You are playing as Black.\n", 38, 0);
+  print_board(p2, 'b');
 
   // 0 = white, 1 = black
   int turn = 0;
@@ -51,16 +53,17 @@ void *handle_game(void *arg) {
 
     char from[2] = { buffer[0], buffer[1] };
     char to[2] = { buffer[2], buffer[3] };
-
-    if (move_piece(from, to, turn == 0 ? 'w' : 'b')) {
+    char current_color = turn == 0 ? 'w' : 'b';
+    char opponent_color = turn == 0 ? 'b' : 'w';
+    if (move_piece(from, to, current_color)) {
       send(opponent, "Opponent's move: ", 17, 0);
       send(opponent, buffer, 4, 0);
       send(opponent, "\n", 1, 0);
-      printf("turn = %d\n", turn);
-      turn = 1 - turn;
-      printf("turn = %d\n", turn);
 
+      print_board(current, current_color);
+      print_board(opponent, opponent_color);
 
+      turn = 1 - turn; 
     }
     else {
       send(current, "Invalid move. Try again.\n", 24, 0);
