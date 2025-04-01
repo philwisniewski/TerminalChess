@@ -127,6 +127,10 @@ int is_valid_move(char from[2], char to[2], char player) {
     return 0;  // Empty square or wrong player's piece
   }
 
+  if (target != ' ' && (player == 'w' && islower(target))) {
+    return 0; // trying to capture own team
+  }
+
   // Rook movement (horizontal/vertical)
   if (tolower(piece) == 'r') {
     if (from_row != to_row && from_col != to_col) {
@@ -211,7 +215,7 @@ int is_valid_move(char from[2], char to[2], char player) {
     }
     // Pawn capture (diagonal)
     else if (abs(from_col - to_col) == 1 && to_row == from_row + direction &&
-             (islower(target) && player == 'w' || isupper(target) && player == 'b')) {
+             (islower(target) && player == 'b' || isupper(target) && player == 'w')) {
       return 1;  // Capture opponent’s piece
     }
     return 0;  // Invalid pawn move
@@ -220,12 +224,85 @@ int is_valid_move(char from[2], char to[2], char player) {
   return 1;  // Valid move
 }
 
+int is_legal_castle(char from[2], char to[2], char player) {
+  int from_row = from[1] - '1';
+  int from_col = from[0] - 'a';
+  int to_row = to[1] - '1';
+  int to_col = to[0] - 'a';
+
+  if (abs(from_col - to_col) != 2 || from_row != to_row) {
+    return 0;
+  }
+  if (player == 'w') {
+    // white
+    char piece = board[from_row][from_col];
+    if (piece == 'k' && king_moved[0] == 0) {
+      if (to_col == 6 && right_rook_moved[0] == 0 && board[0][5] == ' ' && board[0][6] == ' ') {
+        return 1;
+      }
+      else if (to_col == 2 && left_rook_moved[0] == 0 && board[0][1] == ' ' && board[0][2] == ' ' && board[0][3] == ' ') {
+        return 1;
+      }
+    }
+  }
+  else if (player == 'b') {
+    // black
+    char piece = board[from_row][from_col];
+    if (piece == 'K' && king_moved[1] == 0) {
+      if (to_col == 6 && right_rook_moved[1] == 0 && board[7][5] == ' ' && board[7][6] == ' ') {
+        return 1;
+      }
+      else if (to_col == 2 && left_rook_moved[1] == 0 && board[7][1] == ' ' && board[7][2] == ' ' && board[7][3] == ' ') {
+        return 1;
+      }
+    }
+  }
+  // illegal
+  return 0;
+}
+
 int move_piece(char from[2], char to[2], char player) {
   int from_row = from[1] - '1';
   int from_col = from[0] - 'a';
   int to_row = to[1] - '1';
   int to_col = to[0] - 'a';
 
+  if (is_legal_castle(from, to, player)) {
+    // successful castle
+    if (player == 'w') {
+      // player is white
+      if (to_col == 6) {
+        board[0][6] = 'k';
+        board[0][5] = 'r';
+        board[0][7] = ' ';
+        board[0][4] = ' ';
+        king_moved[0] = 1;
+      }
+      else if (to_col == 2) {
+        board[0][2] = 'k';
+        board[0][3] = 'r';
+        board[0][0] = ' ';
+        board[0][4] = ' ';
+        king_moved[0] = 1;
+      }
+    }
+    else if (player == 'b') {
+      // player is black
+      if (to_col == 6) { 
+        board[7][6] = 'k';
+        board[7][5] = 'r';
+        board[7][4] = ' ';
+        board[7][7] = ' ';
+      } else if (to_col == 2) { // Black queenside castling (O-O-O)
+        board[7][2] = 'k';
+        board[7][3] = 'r';
+        board[7][4] = ' ';
+        board[7][0] = ' ';
+        king_moved[1] = 1;
+      }
+    }
+    return 1;
+  }
   if (is_valid_move(from, to, player)) {
     board[to_row][to_col] = board[from_row][from_col];  // Move piece
     board[from_row][from_col] = ' ';  // Clear the original position
