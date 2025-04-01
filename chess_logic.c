@@ -19,11 +19,22 @@ char board[BOARD_SIZE][BOARD_SIZE] = {
   {'R', 'N', 'B', 'Q', 'K', 'B', 'N', 'R'}
 };
 
+// Castling tracking variables
+int king_moved[2] = {0, 0};  // 0 for white, 1 for black
+int left_rook_moved[2] = {0, 0};  // 0 for white, 1 for black
+int right_rook_moved[2] = {0, 0};  // 0 for white, 1 for black
+
 void initialize_board() {
   for (int i = 0; i < BOARD_SIZE; i++) {
     for (int j = 0; i < BOARD_SIZE; j++) {
       // already set, may implement later
     }
+  }
+}
+
+void promote_pawn(int row, int col) {
+  if (row == 0 || row == BOARD_SIZE - 1) {
+    board[row][col] = (board[row][col] == 'p' ? 'q' : 'Q'); // Promote to queen
   }
 }
 
@@ -89,69 +100,124 @@ void print_board(int socket, char player) {
   printf("sent to socket\n");
 }
 
+/*
+ * is_valid_move
+ * checks if move is legal
+ */
 int is_valid_move(char from[2], char to[2], char player) {
   int from_row = from[1] - '1';
   int from_col = from[0] - 'a';
   int to_row = to[1] - '1';
   int to_col = to[0] - 'a';
-  
-  if (from_row == to_row && from_col == to_col) {
-    return 0;
-  }
 
+  // Basic bounds check
+  if (from_row == to_row && from_col == to_col) {
+    return 0;  // Can't move to the same position
+  }
   if (from_row < 0 || from_row >= BOARD_SIZE || from_col < 0 || from_col >= BOARD_SIZE ||
       to_row < 0 || to_row >= BOARD_SIZE || to_col < 0 || to_col >= BOARD_SIZE) {
-    return 0;
+    return 0;  // Out of bounds
   }
 
   char piece = board[from_row][from_col];
   char target = board[to_row][to_col];
 
-  switch(tolower(piece)) {
-    case 'r':
-      // rook
-      if (from_row != to_row && from_col != to_col) {
-        return 0;
-      }
-      break;
-    case 'k':
-      // knight
-      int row_dist = abs(from_row - to_row);
-      int col_dist = abs(from_col - to_col);
-      if (row_dist == 0 || col_dist == 0 || row_dist + col_dist != 3) {
-        return 1;
-      }
-      break;
-    case 'b':
-      // bishop
-      if (abs(to_row - from_row) != abs(to_col - from_col)) {
-        return 1;
-      }
-      break;
-    case 'q':
-      // queen
-      if ((from_row != to_row && from_col != to_col) && (abs(to_row - from_row) != abs(to_col - from_col))) {
-        return 1;
-      }
-      break;
-    case 'k':
-      // king
-      break;
-    case 'p':
-      // pawn
-      break;
-    default:
-      // shouldn't happen
-      return 0
+  // Check for valid piece
+  if (piece == ' ' || (player == 'b' && islower(piece)) || (player == 'w' && isupper(piece))) {
+    return 0;  // Empty square or wrong player's piece
   }
 
-  if (piece == ' ' || (player == 'w' && islower(piece)) || (player == 'b' && isupper(piece))) {
-    return 1;
+  // Rook movement (horizontal/vertical)
+  if (tolower(piece) == 'r') {
+    if (from_row != to_row && from_col != to_col) {
+      return 0;  // Must move straight
+    }
+    // Check for blocking pieces
+    if (from_row == to_row) {  // Moving horizontally
+      int step = (to_col > from_col) ? 1 : -1;
+      for (int col = from_col + step; col != to_col; col += step) {
+        if (board[from_row][col] != ' ') return 0;  // Blocked
+      }
+    } else {  // Moving vertically
+      int step = (to_row > from_row) ? 1 : -1;
+      for (int row = from_row + step; row != to_row; row += step) {
+        if (board[row][from_col] != ' ') return 0;  // Blocked
+      }
+    }
+  }
+  // Bishop movement (diagonal)
+  else if (tolower(piece) == 'b') {
+    if (abs(to_row - from_row) != abs(to_col - from_col)) {
+      return 0;  // Must move diagonally
+    }
+    int row_step = (to_row > from_row) ? 1 : -1;
+    int col_step = (to_col > from_col) ? 1 : -1;
+    int row = from_row + row_step, col = from_col + col_step;
+    while (row != to_row && col != to_col) {
+      if (board[row][col] != ' ') return 0;  // Blocked
+      row += row_step;
+      col += col_step;
+    }
+  }
+  // Queen movement (rook or bishop logic)
+  else if (tolower(piece) == 'q') {
+    if (from_row == to_row || from_col == to_col) {
+      // Rook-like movement
+      if (from_row == to_row) {  // Moving horizontally
+        int step = (to_col > from_col) ? 1 : -1;
+        for (int col = from_col + step; col != to_col; col += step) {
+          if (board[from_row][col] != ' ') return 0;  // Blocked
+        }
+      } else {  // Moving vertically
+        int step = (to_row > from_row) ? 1 : -1;
+        for (int row = from_row + step; row != to_row; row += step) {
+          if (board[row][from_col] != ' ') return 0;  // Blocked
+        }
+      }
+    } else if (abs(to_row - from_row) == abs(to_col - from_col)) {
+      // Bishop-like movement
+      int row_step = (to_row > from_row) ? 1 : -1;
+      int col_step = (to_col > from_col) ? 1 : -1;
+      int row = from_row + row_step, col = from_col + col_step;
+      while (row != to_row && col != to_col) {
+        if (board[row][col] != ' ') return 0;  // Blocked
+        row += row_step;
+        col += col_step;
+      }
+    } else {
+      return 0;  // Invalid queen move
+    }
+  }
+  // Knight movement (L-shape) - no need to check for obstacles
+  else if (tolower(piece) == 'n') {
+    int row_dist = abs(from_row - to_row);
+    int col_dist = abs(from_col - to_col);
+    if (!(row_dist == 2 && col_dist == 1) && !(row_dist == 1 && col_dist == 2)) {
+      return 0;  // Invalid knight move
+    }
+  }
+  // King movement (one step, except for castling)
+  else if (tolower(piece) == 'k') {
+    if (abs(to_row - from_row) > 1 || abs(to_col - from_col) > 1) {
+      return 0;  // King moves only one square
+    }
+  }
+  // Pawn movement
+  else if (tolower(piece) == 'p') {
+    int direction = (isupper(piece)) ? -1 : 1;  // White moves up, Black moves down
+    if (from_col == to_col && target == ' ' && ((from_row + direction == to_row) || 
+        (from_row == (direction == 1 ? 1 : 6) && from_row + 2 * direction == to_row))) {
+      return 1;  // Regular move or initial 2-square move
+    }
+    // Pawn capture (diagonal)
+    else if (abs(from_col - to_col) == 1 && to_row == from_row + direction &&
+             (islower(target) && player == 'w' || isupper(target) && player == 'b')) {
+      return 1;  // Capture opponent’s piece
+    }
+    return 0;  // Invalid pawn move
   }
 
-  // TODO: add checks for other pieces
-
-  return 0;
+  return 1;  // Valid move
 }
 
 int move_piece(char from[2], char to[2], char player) {
